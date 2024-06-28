@@ -42,8 +42,8 @@ class FederatedDataset:
 
     Parameters
     ----------
-    dataset : str
-        The name of the dataset in the Hugging Face Hub.
+    dataset : Union[str, DatasetDict]
+        The name of the dataset in the Hugging Face Hub or DatasetDict object.
     subset : str
         Secondary information regarding the dataset, most often subset or version
         (that is passed to the name in datasets.load_dataset).
@@ -101,7 +101,7 @@ class FederatedDataset:
     def __init__(
         self,
         *,
-        dataset: str,
+        dataset: Union[str, DatasetDict],
         subset: Optional[str] = None,
         preprocessor: Optional[Union[Preprocessor, Dict[str, Tuple[str, ...]]]] = None,
         partitioners: Dict[str, Union[Partitioner, int]],
@@ -109,7 +109,7 @@ class FederatedDataset:
         seed: Optional[int] = 42,
     ) -> None:
         _check_if_dataset_tested(dataset)
-        self._dataset_name: str = dataset
+        self._dataset_name: Union[str, DatasetDict] = dataset
         self._subset: Optional[str] = subset
         self._preprocessor: Optional[Preprocessor] = _instantiate_merger_if_needed(
             preprocessor
@@ -288,9 +288,17 @@ class FederatedDataset:
         Therefore, for such edge cases (for which we have split) the split should
         happen before the resplitting.
         """
-        self._dataset = datasets.load_dataset(
-            path=self._dataset_name, name=self._subset
-        )
+        if isinstance(self._dataset_name, str):
+            self._dataset = datasets.load_dataset(
+                path=self._dataset_name, name=self._subset
+            )
+        elif isinstance(self._dataset_name, DatasetDict):
+            self._dataset = self._dataset_name
+        else:
+            raise ValueError(
+                "The dataset should be either a string (name of the dataset) or "
+                "DatasetDict."
+            )
         if self._shuffle:
             # Note it shuffles all the splits. The self._dataset is DatasetDict
             # so e.g. {"train": train_data, "test": test_data}. All splits get shuffled.
